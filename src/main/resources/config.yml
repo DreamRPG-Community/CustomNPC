@@ -1,0 +1,13 @@
+name:
+  line-spacing: 0.25
+  offset: 2.3
+  view-distance: 32.0
+selection:
+  range: 6.0
+  radius: 0.75
+  stick-material: STICK
+shopkeeper:
+  create-permission: customnpc.shopkeeper.create
+debug:
+  orientation: true
+  lifecycle: true

@@ -1,0 +1,22 @@
+name: CustomNPC
+version: ${version}
+main: cn.mythicland.customnpc.CustomNPCPlugin
+author: ShanguanLinG
+load: POSTWORLD
+depend: [ Lib ]
+softdepend: [ Shopkeepers ]
+description: Annotation-driven packet NPCs with optional Shopkeepers integration.
+
+commands:
+  customnpc:
+    description: Manage CustomNPC packet NPCs.
+    aliases:
+      - cnpc
+
+permissions:
+  customnpc.admin:
+    description: Manage CustomNPC instances.
+    default: op
+  customnpc.shopkeeper.create:
+    description: Create and edit Shopkeepers bindings for CustomNPC instances.
+    default: op

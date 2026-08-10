@@ -1,0 +1,90 @@
+package cn.mythicland.thirdparty.npclib;
+
+/**
+ * Mutable preferences for library usage
+ *
+ * @author A248
+ *
+ */
+public class NPCLibOptions {
+
+    MovementHandling moveHandling;
+    boolean lifecycleDebug;
+
+    /**
+     * Creates the default options
+     *
+     */
+    public NPCLibOptions() {
+        moveHandling = MovementHandling.playerMoveEvent();
+        lifecycleDebug = false;
+    }
+
+    /**
+     * Specifies the motion handling which will be used for the library. <br>
+     * Programmers may choose between using the PlayerMoveEvent or
+     * a periodic task. <br>
+     * <br>
+     * Note that NPCLib will always use events such as the PlayerTeleportEvent
+     * and PlayerChangedWorldEvent in addition to the specified option.
+     *
+     * @param moveHandling the movement handling
+     * @return the same NPCLibOptions
+     */
+    public NPCLibOptions setMovementHandling(MovementHandling moveHandling) {
+        this.moveHandling = moveHandling;
+        return this;
+    }
+
+    /**
+     * Enables diagnostic logging for NPC show/hide lifecycle transitions.
+     *
+     * @param lifecycleDebug whether lifecycle diagnostics should be logged
+     * @return the same NPCLibOptions
+     */
+    public NPCLibOptions setLifecycleDebug(boolean lifecycleDebug) {
+        this.lifecycleDebug = lifecycleDebug;
+        return this;
+    }
+
+    /**
+     * Options relating to movement handling
+     *
+     * @author A248
+     *
+     */
+    public static class MovementHandling {
+
+        final boolean usePme;
+        final long updateInterval;
+
+        private MovementHandling(boolean usePme, long updateInterval) {
+            this.usePme = usePme;
+            this.updateInterval = updateInterval;
+        }
+
+        /**
+         * Gets movement handling using the PlayerMoveEvent
+         *
+         * @return movement handling
+         */
+        public static MovementHandling playerMoveEvent() {
+            return new MovementHandling(true, 0);
+        }
+
+        /**
+         * Gets movement handling using a periodic update interval in ticks.
+         *
+         * @param updateInterval the update interval in ticks
+         * @return movement handling
+         */
+        public static MovementHandling repeatingTask(long updateInterval) {
+            if (updateInterval <= 0) {
+                throw new IllegalArgumentException("Negative update interval");
+            }
+            return new MovementHandling(false, updateInterval);
+        }
+
+    }
+
+}
