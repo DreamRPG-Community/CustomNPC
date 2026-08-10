@@ -61,13 +61,6 @@ public class ChunkListener implements Listener {
                 Player player = Bukkit.getPlayer(uuid);
                 if (player != null) {
                     if (Objects.equals(npc.getWorld(), player.getWorld()) && npc.inRangeOf(player)) {
-                        if (instance.isLifecycleDebug()) {
-                            instance.getLogger().info(
-                                    "[lifecycle-debug] keep entity=" + npc.getEntityId()
-                                            + " viewer=" + player.getName()
-                                            + " reason=chunk-unload-in-range"
-                            );
-                        }
                         continue;
                     }
                     npc.hide(player, true);

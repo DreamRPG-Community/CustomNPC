@@ -25,23 +25,15 @@ public final class NPCLib {
     private final List<NPC> ownedNpcs;
     private PacketListener packetListener;
 
-    private boolean lifecycleDebug;
-
     private Class<?> npcClass = null;
 
     private double autoHideDistance = 50.0;
 
     private NPCLib(JavaPlugin plugin, MovementHandling moveHandling) {
-        this(plugin, moveHandling, false);
-    }
-
-    private NPCLib(JavaPlugin plugin, MovementHandling moveHandling, boolean lifecycleDebug) {
         this.plugin = plugin;
         this.logger = new Logger("NPCLib");
         this.listeners = new ArrayList<>();
         this.ownedNpcs = new ArrayList<>();
-        this.lifecycleDebug = lifecycleDebug;
-
         String versionName = plugin.getServer().getClass().getPackage().getName().split("\\.")[3];
 
         try {
@@ -82,7 +74,7 @@ public final class NPCLib {
     }
 
     public NPCLib(JavaPlugin plugin, NPCLibOptions options) {
-        this(plugin, options.moveHandling, options.lifecycleDebug);
+        this(plugin, options.moveHandling);
     }
 
     /**
@@ -114,22 +106,6 @@ public final class NPCLib {
      */
     public Logger getLogger() {
         return logger;
-    }
-
-    /**
-     * @return whether lifecycle diagnostics are enabled
-     */
-    public boolean isLifecycleDebug() {
-        return lifecycleDebug;
-    }
-
-    /**
-     * Enables or disables diagnostic lifecycle logging for NPC visibility transitions.
-     *
-     * @param lifecycleDebug whether lifecycle diagnostics should be logged
-     */
-    public void setLifecycleDebug(boolean lifecycleDebug) {
-        this.lifecycleDebug = lifecycleDebug;
     }
 
     /**

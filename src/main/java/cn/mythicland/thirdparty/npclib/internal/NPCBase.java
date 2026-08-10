@@ -261,7 +261,6 @@ public abstract class NPCBase implements NPC, NPCPacketHandler {
         }
 
         if (auto) {
-            logLifecycle("show", player, true);
             sendShowPackets(player);
             sendMetadataPacket(player);
             sendEquipmentPackets(player);
@@ -274,13 +273,11 @@ public abstract class NPCBase implements NPC, NPCPacketHandler {
 
             if (inRangeOf(player) && inViewOf(player)) {
                 // The player can see the NPC and is in range, send the packets.
-                logLifecycle("show", player, false);
                 sendShowPackets(player);
                 sendMetadataPacket(player);
                 sendEquipmentPackets(player);
             } else {
                 // We'll wait until we can show the NPC to the player via auto-show.
-                logLifecycle("queue", player, false);
                 autoHidden.add(player.getUniqueId());
             }
         }
@@ -307,7 +304,6 @@ public abstract class NPCBase implements NPC, NPCPacketHandler {
                 throw new IllegalStateException("NPC cannot be auto-hidden twice");
             }
 
-            logLifecycle("hide", player, true);
             sendHidePackets(player);
 
             // NPC is auto-hidden now, we will add the UUID to the set.
@@ -318,25 +314,12 @@ public abstract class NPCBase implements NPC, NPCPacketHandler {
 
             if (inRangeOf(player)) {
                 // The player is in range of the NPC, send the packets.
-                logLifecycle("hide", player, false);
                 sendHidePackets(player);
             } else {
                 // We don't have to send any packets, just don't let it auto-show again by removing the UUID from the set.
                 autoHidden.remove(player.getUniqueId());
             }
         }
-    }
-
-    private void logLifecycle(String action, Player player, boolean auto) {
-        if (!instance.isLifecycleDebug()) return;
-        instance.getLogger().info(
-                "[lifecycle-debug] entity=" + entityId
-                        + " npc=" + uuid
-                        + " viewer=" + player.getName()
-                        + " action=" + action
-                        + " auto=" + auto
-                        + " location=" + location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ()
-        );
     }
 
     @Override

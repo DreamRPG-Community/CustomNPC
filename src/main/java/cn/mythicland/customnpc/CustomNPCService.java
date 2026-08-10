@@ -8,6 +8,7 @@ import cn.mythicland.customnpc.storage.NpcRepository;
 import cn.mythicland.lib.api.LibApi;
 import cn.mythicland.lib.bootstrap.PluginTaskScope;
 import cn.mythicland.lib.bootstrap.annotation.ServiceComponent;
+import cn.mythicland.lib.config.ConfigSupport;
 import cn.mythicland.lib.location.LocationSnapper;
 import cn.mythicland.lib.text.FloatingTextHandle;
 import cn.mythicland.lib.text.FloatingTextService;
@@ -22,7 +23,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
@@ -48,13 +48,13 @@ public final class CustomNPCService implements CustomNPCApi {
     private final FloatingTextService floatingText;
     private final PluginTaskScope tasks;
     private final NpcRepository repository;
+    private final CustomNPCSettings settings;
     private final MojangSkinFetcher skinFetcher = new MojangSkinFetcher();
     private final Map<UUID, NpcRecord> records = new LinkedHashMap<>();
     private final Map<UUID, RuntimeNpc> runtime = new LinkedHashMap<>();
     private final Map<NPC, UUID> npcIds = new IdentityHashMap<>();
     private final Map<UUID, UUID> selections = new LinkedHashMap<>();
     private NPCLib npcLib;
-    private CustomNPCSettings settings;
     private ExternalShopkeeperIntegration shopkeepers;
     private CompletableFuture<Void> saveTail = CompletableFuture.completedFuture(null);
     private boolean enabled;
@@ -64,12 +64,14 @@ public final class CustomNPCService implements CustomNPCApi {
             CustomNPCPlugin plugin,
             LibApi lib,
             FloatingTextService floatingText,
-            PluginTaskScope tasks
+            PluginTaskScope tasks,
+            CustomNPCSettings settings
     ) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.lib = Objects.requireNonNull(lib, "lib");
         this.floatingText = Objects.requireNonNull(floatingText, "floatingText");
         this.tasks = Objects.requireNonNull(tasks, "tasks");
+        this.settings = Objects.requireNonNull(settings, "settings");
         this.repository = new NpcRepository(plugin.getDataFolder().toPath().resolve("npcs.yml"));
     }
 
@@ -176,6 +178,36 @@ public final class CustomNPCService implements CustomNPCApi {
         return target;
     }
 
+    /**
+     * Computes the top anchor for a name display whose last line starts at the configured offset.
+     *
+     * <p>{@link FloatingTextSpec} stores lines from top to bottom, while the shared floating-text
+     * service places later lines below the anchor. CustomNPC therefore raises the anchor by the
+     * sum of the independent gaps so the bottom line remains at {@code nameOffset}.</p>
+     *
+     * @param npcLocation  NPC feet location
+     * @param nameOffset   height of the bottom line above the NPC
+     * @param lineSpacings independent gaps in top-to-bottom line order
+     * @return defensive copy of the top display anchor
+     */
+    static Location nameDisplayAnchor(
+            Location npcLocation,
+            double nameOffset,
+            List<Double> lineSpacings
+    ) {
+        Objects.requireNonNull(lineSpacings, "lineSpacings");
+        if (lineSpacings.isEmpty()) throw new IllegalArgumentException("lineSpacings must not be empty");
+        double additionalHeight = 0.0D;
+        for (int index = 1; index < lineSpacings.size(); index++) {
+            additionalHeight += lineSpacings.get(index);
+        }
+        return Objects.requireNonNull(npcLocation, "npcLocation").clone().add(
+                0.0D,
+                nameOffset + additionalHeight,
+                0.0D
+        );
+    }
+
     private static float normalizeYaw(float yaw) {
         float normalized = yaw % 360.0F;
         if (normalized <= -180.0F) normalized += 360.0F;
@@ -187,13 +219,16 @@ public final class CustomNPCService implements CustomNPCApi {
         return (byte) ((int) (angle * 256.0F / 360.0F));
     }
 
+    private static boolean runtimeRequiresRecreation(NpcRecord previous, NpcRecord current) {
+        return !Objects.equals(previous.location(), current.location())
+                || !Objects.equals(previous.skin(), current.skin());
+    }
+
     /**
      * Enables the aggregate and starts asynchronous data restoration.
      */
     public void enable() {
         if (enabled) throw new IllegalStateException("CustomNPC is already enabled");
-        FileConfiguration configuration = cn.mythicland.lib.config.ConfigSupport.loadDefault(plugin);
-        settings = CustomNPCSettings.load(plugin, configuration);
         enabled = true;
         loading = true;
         ensureNpcLib();
@@ -230,18 +265,44 @@ public final class CustomNPCService implements CustomNPCApi {
 
     /**
      * Reloads mutable configuration and applies it to current displays.
+     *
+     * <p>The persisted NPC definitions are loaded off the primary thread. The resulting records
+     * and client-side displays are then replaced on the Bukkit primary thread.</p>
+     *
+     * @return future completed after the file snapshot has been applied
      */
-    public void reload() {
+    public CompletableFuture<Void> reload() {
         ensureEnabled();
-        FileConfiguration configuration = cn.mythicland.lib.config.ConfigSupport.loadDefault(plugin);
-        settings = CustomNPCSettings.load(plugin, configuration);
-        if (npcLib != null) npcLib.setLifecycleDebug(settings.lifecycleDebug());
-        for (Map.Entry<UUID, RuntimeNpc> entry : runtime.entrySet()) {
-            NpcRecord record = records.get(entry.getKey());
-            if (record != null) updateNameDisplay(record, entry.getValue());
+        try {
+            settings.reload(ConfigSupport.reloadView(plugin));
+        } catch (RuntimeException exception) {
+            plugin.getLogger().log(Level.WARNING, "Could not reload CustomNPC configuration.", exception);
+            return CompletableFuture.failedFuture(exception);
         }
-        reloadShopkeeperNames();
-        plugin.getLogger().info("CustomNPC configuration reloaded.");
+        return reloadNpcData();
+    }
+
+    /**
+     * Reloads the persisted NPC definitions after Lib has already refreshed plugin configuration.
+     *
+     * @return future completed after the file snapshot has been applied
+     */
+    CompletableFuture<Void> reloadNpcData() {
+        ensureEnabled();
+        return repository.load()
+                .handle(RepositoryLoadResult::new)
+                .thenCompose(result -> lib.runOnMain(() -> applyRepositoryReload(result)))
+                .whenComplete((ignored, error) -> {
+                    if (error == null) {
+                        plugin.getLogger().info("CustomNPC configuration reloaded.");
+                    } else {
+                        plugin.getLogger().log(
+                                Level.WARNING,
+                                "Could not reload CustomNPC data.",
+                                error
+                        );
+                    }
+                });
     }
 
     /**
@@ -314,11 +375,16 @@ public final class CustomNPCService implements CustomNPCApi {
                 npc.setSkin(new Skin(skin.value(), skin.signature()));
             }
             npc.create();
-            Location textLocation = location.clone().add(0.0D, settings.nameOffset(), 0.0D);
+            List<Double> lineSpacings = lineSpacings(record);
+            Location textLocation = nameDisplayAnchor(
+                    location,
+                    settings.nameOffset(),
+                    lineSpacings
+            );
             @SuppressWarnings("resource")
             FloatingTextHandle handle = floatingText.show(
                     textLocation,
-                    new FloatingTextSpec(record.nameLines(), settings.lineSpacing(), settings.viewDistance())
+                    new FloatingTextSpec(record.nameLines(), lineSpacings, settings.viewDistance())
             );
             runtime.put(record.id(), new RuntimeNpc(npc, handle));
             npcIds.put(npc, record.id());
@@ -330,13 +396,53 @@ public final class CustomNPCService implements CustomNPCApi {
     }
 
     private void recreateRuntime(NpcRecord record) {
-        RuntimeNpc old = runtime.remove(record.id());
-        if (old != null) {
-            npcIds.remove(old.npc());
-            old.destroy();
-        }
+        destroyRuntime(record.id());
         createRuntimeSafely(record);
         showToOnlinePlayers();
+    }
+
+    private void destroyRuntime(UUID id) {
+        RuntimeNpc old = runtime.remove(id);
+        if (old == null) return;
+        npcIds.remove(old.npc());
+        old.destroy();
+    }
+
+    private void applyRepositoryReload(RepositoryLoadResult result) {
+        if (!enabled) return;
+        if (result.error() != null) {
+            throw new IllegalStateException("Could not reload CustomNPC data", result.error());
+        }
+
+        Map<UUID, NpcRecord> previous = new LinkedHashMap<>(records);
+        records.clear();
+        records.putAll(result.records());
+        selections.values().removeIf(id -> !records.containsKey(id));
+
+        for (UUID id : previous.keySet()) {
+            if (!records.containsKey(id)) destroyRuntime(id);
+        }
+        for (NpcRecord record : records.values()) {
+            RuntimeNpc current = runtime.get(record.id());
+            if (current == null) {
+                createRuntimeSafely(record);
+                continue;
+            }
+
+            NpcRecord old = previous.get(record.id());
+            if (old != null && runtimeRequiresRecreation(old, record)) {
+                recreateRuntime(record);
+            } else {
+                updateNameDisplay(record, current);
+            }
+        }
+
+        if (shopkeepers != null) shopkeepers.onNpcsLoaded();
+        showToOnlinePlayers();
+    }
+
+    private List<Double> lineSpacings(NpcRecord record) {
+        return settings.lineSpacings(record.nameLines().size(), record.nameLineSpacings());
     }
 
     /**
@@ -377,12 +483,17 @@ public final class CustomNPCService implements CustomNPCApi {
     private void updateNameDisplay(NpcRecord record, RuntimeNpc value) {
         Location location = record.location().resolve();
         if (location == null) return;
+        List<Double> lineSpacings = lineSpacings(record);
         value.nameHandle().update(new FloatingTextSpec(
                 record.nameLines(),
-                settings.lineSpacing(),
+                lineSpacings,
                 settings.viewDistance()
         ));
-        value.nameHandle().move(location.add(0.0D, settings.nameOffset(), 0.0D));
+        value.nameHandle().move(nameDisplayAnchor(
+                location,
+                settings.nameOffset(),
+                lineSpacings
+        ));
     }
 
     /**
@@ -514,6 +625,7 @@ public final class CustomNPCService implements CustomNPCApi {
                 id,
                 NpcLocation.from(location),
                 lines,
+                settings.defaultNameLineSpacings(lines.size()),
                 null,
                 List.of(),
                 null,
@@ -564,24 +676,6 @@ public final class CustomNPCService implements CustomNPCApi {
         if (shopkeepers != null) shopkeepers.synchronizeName(id);
         persist();
         player.sendMessage(ChatColor.GREEN + "名字第 " + line + " 行已更新。");
-    }
-
-    private void reloadShopkeeperNames() {
-        repository.load().whenComplete((loaded, error) -> lib.runOnMain(() -> {
-            if (error != null) {
-                plugin.getLogger().log(Level.WARNING, "Could not reload Shopkeepers titles from npcs.yml.", error);
-                return;
-            }
-            for (NpcRecord current : List.copyOf(records.values())) {
-                NpcRecord configured = loaded.get(current.id());
-                if (configured == null || Objects.equals(current.shopkeeperName(), configured.shopkeeperName())) {
-                    continue;
-                }
-                NpcRecord updated = current.withShopkeeperName(configured.shopkeeperName());
-                records.put(updated.id(), updated);
-                if (shopkeepers != null) shopkeepers.synchronizeName(updated.id());
-            }
-        }));
     }
 
     /**
@@ -682,16 +776,12 @@ public final class CustomNPCService implements CustomNPCApi {
         }
     }
 
-    public void remove(Player player) {
+    public void delete(Player player) {
         if (isAdminDenied(player)) return;
         UUID id = selectedId(player);
         if (id == null) return;
         if (shopkeepers != null) shopkeepers.deleteForNpc(id);
-        RuntimeNpc value = runtime.remove(id);
-        if (value != null) {
-            npcIds.remove(value.npc());
-            value.destroy();
-        }
+        destroyRuntime(id);
         records.remove(id);
         selections.remove(player.getUniqueId());
         persist();
@@ -755,7 +845,7 @@ public final class CustomNPCService implements CustomNPCApi {
     }
 
     private void logMoveDebug(UUID id, Location target, Location snappedTarget) {
-        if (settings == null || !settings.orientationDebug()) return;
+        if (!settings.orientationDebug()) return;
         plugin.getLogger().info(String.format(
                 Locale.ROOT,
                 "[orientation-debug] move npc=%s raw=(%.3f, %.3f, %.3f yaw=%.3f pitch=%.3f) "
@@ -768,7 +858,7 @@ public final class CustomNPCService implements CustomNPCApi {
     }
 
     private void logOrientationDebug(UUID id, Player player, Location rawTarget, Location bodyTarget) {
-        if (settings == null || !settings.orientationDebug()) return;
+        if (!settings.orientationDebug()) return;
 
         Location rawFacing = rawTarget.clone();
         Vector rawDirection = player.getLocation().toVector().subtract(rawFacing.toVector());
@@ -901,7 +991,9 @@ public final class CustomNPCService implements CustomNPCApi {
                                 cn.mythicland.thirdparty.npclib.NPCLibOptions.MovementHandling
                                         .repeatingTask(VISIBILITY_RECONCILE_INTERVAL_TICKS)
                         )
-                        .setLifecycleDebug(settings.lifecycleDebug())
         );
+    }
+
+    private record RepositoryLoadResult(Map<UUID, NpcRecord> records, Throwable error) {
     }
 }

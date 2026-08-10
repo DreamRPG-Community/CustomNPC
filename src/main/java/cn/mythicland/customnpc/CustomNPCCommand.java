@@ -1,10 +1,12 @@
 package cn.mythicland.customnpc;
 
 import cn.mythicland.customnpc.model.CommandExecutionMode;
+import cn.mythicland.lib.api.LibApi;
 import cn.mythicland.lib.bootstrap.annotation.CommandCompleter;
 import cn.mythicland.lib.bootstrap.annotation.CommandComponent;
 import cn.mythicland.lib.bootstrap.annotation.CommandHandler;
 import cn.mythicland.lib.command.CommandContext;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -143,13 +145,13 @@ public final class CustomNPCCommand {
     }
 
     @CommandHandler(
-            value = "remove",
-            usage = "/customnpc remove",
+            value = "delete",
+            usage = "/customnpc delete",
             order = 50
     )
-    private void remove(CommandContext context) {
+    private void delete(CommandContext context) {
         context.requireArguments(0);
-        service.remove(player(context));
+        service.delete(player(context));
     }
 
     @CommandHandler(
@@ -159,8 +161,15 @@ public final class CustomNPCCommand {
     )
     private void reload(CommandContext context) {
         context.requireArguments(0);
-        service.reload();
-        context.sender().sendMessage("CustomNPC 配置已重载。");
+        service.reload().whenComplete((ignored, error) -> {
+            if (error == null) {
+                context.sender().sendMessage("CustomNPC 配置已重载。");
+                return;
+            }
+            context.sender().sendMessage(
+                    ChatColor.RED + "CustomNPC 配置重载失败: " + LibApi.rootCauseMessage(error)
+            );
+        });
     }
 
     @CommandCompleter("cmd add")

@@ -55,6 +55,46 @@ class NpcModelTest {
     }
 
     @Test
+    void npcRecordKeepsCustomNameLineSpacingsImmutable() {
+        List<Double> spacings = new ArrayList<>(List.of(0.35D, 0.6D, 0.0D));
+        NpcRecord record = new NpcRecord(
+                UUID.randomUUID(),
+                new NpcLocation("world", 1.5D, 64.0D, -2.5D, 90.0F, 0.0F),
+                List.of("Top", "Middle", "Bottom"),
+                spacings,
+                null,
+                List.of(),
+                null,
+                null
+        );
+
+        spacings.set(1, 2.0D);
+
+        assertEquals(List.of(0.35D, 0.6D, 0.0D), record.nameLineSpacings());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> record.nameLineSpacings().add(1.0D)
+        );
+    }
+
+    @Test
+    void npcRecordRejectsLegacyRuntimeSpacingOrder() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new NpcRecord(
+                        UUID.randomUUID(),
+                        new NpcLocation("world", 1.5D, 64.0D, -2.5D, 90.0F, 0.0F),
+                        List.of("Top", "Bottom"),
+                        List.of(0.0D, 0.35D),
+                        null,
+                        List.of(),
+                        null,
+                        null
+                )
+        );
+    }
+
+    @Test
     void invalidNpcLocationIsRejected() {
         assertThrows(
                 IllegalArgumentException.class,

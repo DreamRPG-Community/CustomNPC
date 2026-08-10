@@ -1,5 +1,10 @@
 name:
-  line-spacing: 0.25
+  # Entries correspond one-to-one with name lines from top to bottom.
+  # Each value is the gap to the next line; the final value is always 0.0.
+  # Additional lines reuse the last configured gap.
+  line-spacing:
+    - 0.3
+    - 0.0
   offset: 2.3
   view-distance: 32.0
 selection:
@@ -9,5 +14,4 @@ selection:
 shopkeeper:
   create-permission: customnpc.shopkeeper.create
 debug:
-  orientation: true
-  lifecycle: true
+  orientation: false

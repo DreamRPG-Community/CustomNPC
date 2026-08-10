@@ -9,7 +9,6 @@ package cn.mythicland.thirdparty.npclib;
 public class NPCLibOptions {
 
     MovementHandling moveHandling;
-    boolean lifecycleDebug;
 
     /**
      * Creates the default options
@@ -17,7 +16,6 @@ public class NPCLibOptions {
      */
     public NPCLibOptions() {
         moveHandling = MovementHandling.playerMoveEvent();
-        lifecycleDebug = false;
     }
 
     /**
@@ -33,17 +31,6 @@ public class NPCLibOptions {
      */
     public NPCLibOptions setMovementHandling(MovementHandling moveHandling) {
         this.moveHandling = moveHandling;
-        return this;
-    }
-
-    /**
-     * Enables diagnostic logging for NPC show/hide lifecycle transitions.
-     *
-     * @param lifecycleDebug whether lifecycle diagnostics should be logged
-     * @return the same NPCLibOptions
-     */
-    public NPCLibOptions setLifecycleDebug(boolean lifecycleDebug) {
-        this.lifecycleDebug = lifecycleDebug;
         return this;
     }
 

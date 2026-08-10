@@ -47,6 +47,80 @@ class NpcRepositoryTest {
         assertEquals("Special Deals", loaded.resolvedShopkeeperName());
     }
 
+    @Test
+    void reloadReadsAllNameLinesFromAnExternallyEditedFile() throws Exception {
+        UUID id = UUID.randomUUID();
+        Path file = temporaryDirectory.resolve("npcs.yml");
+        Files.writeString(
+                file,
+                """
+                npcs:
+                  %s:
+                    world: world
+                    x: 11.5
+                    y: 7.0
+                    z: -23.5
+                    yaw: -90.0
+                    pitch: 0.0
+                    name:
+                      - '123'
+                      - '234'
+                """.formatted(id)
+        );
+
+        NpcRecord loaded = new NpcRepository(file).load().join().get(id);
+
+        assertNotNull(loaded);
+        assertEquals(List.of("123", "234"), loaded.nameLines());
+    }
+
+    @Test
+    void customNameLineSpacingsRoundTrip() {
+        UUID id = UUID.randomUUID();
+        NpcRecord record = new NpcRecord(
+                id,
+                new NpcLocation("world", 0.5D, 64.0D, 0.5D, 0.0F, 0.0F),
+                List.of("Top", "Middle", "Bottom"),
+                List.of(0.35D, 0.6D, 0.0D),
+                null,
+                List.of(),
+                null,
+                null
+        );
+        NpcRepository repository = new NpcRepository(temporaryDirectory.resolve("npcs.yml"));
+
+        repository.save(Map.of(id, record)).join();
+
+        assertEquals(List.of(0.35D, 0.6D, 0.0D), repository.load().join().get(id).nameLineSpacings());
+    }
+
+    @Test
+    void legacyRuntimeSpacingOrderIsIgnoredOnLoad() throws Exception {
+        UUID id = UUID.randomUUID();
+        Path file = temporaryDirectory.resolve("npcs.yml");
+        Files.writeString(
+                file,
+                """
+                npcs:
+                  %s:
+                    world: world
+                    x: 0.5
+                    y: 64.0
+                    z: 0.5
+                    name:
+                      - 'Top'
+                      - 'Bottom'
+                    name-line-spacing:
+                      - 0.0
+                      - 0.35
+                """.formatted(id)
+        );
+
+        NpcRecord loaded = new NpcRepository(file).load().join().get(id);
+
+        assertNull(loaded);
+    }
+
     private static NpcRecord npc(UUID id, String shopkeeperName) {
         return new NpcRecord(
                 id,

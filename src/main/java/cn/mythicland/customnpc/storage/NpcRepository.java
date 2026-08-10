@@ -44,12 +44,25 @@ public final class NpcRepository {
                 );
                 List<String> lines = npc.getStringList("name");
                 if (lines.isEmpty()) lines = List.of(id.toString());
+                List<Double> lineSpacings = npc.getDoubleList("name-line-spacing");
 
                 SkinData skin = decodeSkin(npc.getConfigurationSection("skin"));
                 List<BoundCommand> commands = decodeCommands(npc.getMapList("commands"));
                 UUID shopkeeperId = parseUuid(npc.getString("shopkeeper-id"));
                 String shopkeeperName = npc.getString("shopkeeper-name");
-                records.put(id, new NpcRecord(id, location, lines, skin, commands, shopkeeperId, shopkeeperName));
+                records.put(
+                        id,
+                        new NpcRecord(
+                                id,
+                                location,
+                                lines,
+                                lineSpacings,
+                                skin,
+                                commands,
+                                shopkeeperId,
+                                shopkeeperName
+                        )
+                );
             } catch (RuntimeException exception) {
                 // One malformed record must not prevent all other NPCs from loading.
             }
@@ -111,6 +124,9 @@ public final class NpcRepository {
             values.put("yaw", location.yaw());
             values.put("pitch", location.pitch());
             values.put("name", record.nameLines());
+            if (!record.nameLineSpacings().isEmpty()) {
+                values.put("name-line-spacing", record.nameLineSpacings());
+            }
             if (record.skin() != null) {
                 SkinData skin = record.skin();
                 values.put("skin", Map.of(

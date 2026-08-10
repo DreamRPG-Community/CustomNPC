@@ -24,7 +24,7 @@ public final class CustomNPCLifecycle implements LibPluginLifecycle {
 
     @Override
     public void reload() {
-        service.reload();
+        service.reloadNpcData();
     }
 
     @Override

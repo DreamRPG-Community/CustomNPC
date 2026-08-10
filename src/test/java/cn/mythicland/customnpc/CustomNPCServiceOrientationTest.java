@@ -6,6 +6,7 @@ import org.bukkit.util.Vector;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -64,6 +65,23 @@ class CustomNPCServiceOrientationTest {
 
         assertEquals(0.0F, placement.getYaw());
         assertEquals(0.0F, head.getYaw());
+    }
+
+    @Test
+    void nameDisplayKeepsBottomLineAtConfiguredOffset() {
+        World world = testWorld();
+        Location npc = new Location(world, 0.5D, 7.0D, 0.5D);
+
+        Location anchor = CustomNPCService.nameDisplayAnchor(
+                npc,
+                2.3D,
+                List.of(0.0D, 0.4D, 0.6D)
+        );
+
+        assertEquals(9.3D, anchor.getY() - 0.4D - 0.6D, 1.0E-9D);
+        assertEquals(10.3D, anchor.getY(), 1.0E-9D);
+        assertEquals(npc.getX(), anchor.getX());
+        assertEquals(npc.getZ(), anchor.getZ());
     }
 
     @Test
