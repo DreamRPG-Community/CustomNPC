@@ -224,6 +224,12 @@ public final class CustomNPCService implements CustomNPCApi {
                 || !Objects.equals(previous.skin(), current.skin());
     }
 
+    static boolean isStickMaterial(Material material, String configuredMaterial) {
+        return material != null
+                && configuredMaterial != null
+                && material.name().equalsIgnoreCase(configuredMaterial.trim());
+    }
+
     /**
      * Enables the aggregate and starts asynchronous data restoration.
      */
@@ -932,6 +938,12 @@ public final class CustomNPCService implements CustomNPCApi {
         return Optional.ofNullable(selections.get(player.getUniqueId()));
     }
 
+    boolean isMovementTool(Player player) {
+        if (player == null) return false;
+        return player.getInventory().getItemInMainHand() != null
+                && isStick(player.getInventory().getItemInMainHand().getType());
+    }
+
     @Override
     public boolean exists(UUID id) {
         return records.containsKey(id);
@@ -939,10 +951,7 @@ public final class CustomNPCService implements CustomNPCApi {
 
     private UUID selectedId(Player player) {
         UUID id = selections.get(player.getUniqueId());
-        if (id == null || !records.containsKey(id)) {
-            player.sendMessage(ChatColor.RED + "请先使用 /customnpc sel 选中 NPC。");
-            return null;
-        }
+        if (id == null || !records.containsKey(id)) return null;
         return id;
     }
 
@@ -953,7 +962,7 @@ public final class CustomNPCService implements CustomNPCApi {
     }
 
     private boolean isStick(Material material) {
-        return material != null && material.name().equalsIgnoreCase(settings.stickMaterial());
+        return isStickMaterial(material, settings.stickMaterial());
     }
 
     private ExternalShopkeeperIntegration createShopkeeperIntegration() {

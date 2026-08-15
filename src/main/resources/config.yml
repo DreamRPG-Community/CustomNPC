@@ -10,6 +10,7 @@ name:
 selection:
   range: 6.0
   radius: 0.75
+  # 选中的 NPC 需要手持此材质并潜行左键方块才会移动。
   stick-material: STICK
 shopkeeper:
   create-permission: customnpc.shopkeeper.create

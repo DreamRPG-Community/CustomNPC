@@ -136,15 +136,8 @@ public class PacketListener {
     }
 
     // This would be a non-static lambda, and its usage matters, so we'll make it a full class.
-    private static final class TaskCallNpcInteractEvent implements Runnable {
+    private record TaskCallNpcInteractEvent(NPCInteractEvent eventToCall, PacketListener listener) implements Runnable {
         private static final Location playerLocation = new Location(null, 0, 0, 0);
-        private final NPCInteractEvent eventToCall;
-        private final PacketListener listener;
-
-        TaskCallNpcInteractEvent(NPCInteractEvent eventToCall, PacketListener listener) {
-            this.eventToCall = eventToCall;
-            this.listener = listener;
-        }
 
         @Override
         public void run() {

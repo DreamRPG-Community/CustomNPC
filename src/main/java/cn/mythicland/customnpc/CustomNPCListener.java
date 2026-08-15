@@ -37,6 +37,7 @@ public final class CustomNPCListener implements Listener {
         if (event.getAction() != Action.LEFT_CLICK_BLOCK
                 || event.getHand() != EquipmentSlot.HAND
                 || !event.getPlayer().isSneaking()
+                || !service.isMovementTool(event.getPlayer())
                 || event.getClickedBlock() == null) return;
         if (service.selectedNpc(event.getPlayer()).isPresent()) event.setCancelled(true);
         service.moveSelectedToBlock(event.getPlayer(), event.getClickedBlock());

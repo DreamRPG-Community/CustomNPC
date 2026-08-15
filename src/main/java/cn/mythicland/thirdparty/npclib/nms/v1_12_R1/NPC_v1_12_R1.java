@@ -85,6 +85,8 @@ public class NPC_v1_12_R1 extends NPCBase {
         playerConnection.sendPacket(packetPlayOutPlayerInfoAdd);
         playerConnection.sendPacket(packetPlayOutNamedEntitySpawn);
         playerConnection.sendPacket(packetPlayOutEntityHeadRotation);
+        // Keep the NPC entity visible without retaining its fake player in the tab list.
+        playerConnection.sendPacket(packetPlayOutPlayerInfoRemove);
 
         getHologram(player).show(player);
     }

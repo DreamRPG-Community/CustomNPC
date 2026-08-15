@@ -16,6 +16,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.inventory.MerchantInventory;
 
 import java.util.*;
 
@@ -95,6 +96,7 @@ public final class ShopkeepersBridge implements ExternalShopkeeperIntegration, L
 
     @Override
     public boolean openTrading(Player player, UUID npcId) {
+        if (player.getOpenInventory().getTopInventory() instanceof MerchantInventory) return true;
         Shopkeeper shopkeeper = findShopkeeper(npcId);
         if (shopkeeper == null) return false;
         synchronizeName(npcId);
